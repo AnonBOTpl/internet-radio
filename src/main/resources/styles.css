@@ -1,0 +1,319 @@
+/* ===================================================
+   RADIO APP - Dark Theme (Modern)
+   Kolory "niebieskie" (#0f3460, #16213e, #1a1a2e)
+   są dynamicznie nadpisywane przez kod Java
+   =================================================== */
+
+/* ===== GŁÓWNE TŁO ===== */
+.main-root {
+    -fx-background-color: #111118;
+}
+
+/* ===== TYTUŁ ===== */
+.app-title {
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+    -fx-font-family: "Segoe UI", Arial, sans-serif;
+}
+
+/* ===== PASEK TYTUŁOWY (CUSTOM WINDOW CHROME) ===== */
+.custom-title-bar {
+    -fx-background-color: #0b0b14;
+}
+.window-title {
+    -fx-text-fill: #ccc;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+}
+.window-btn, .window-btn-close {
+    -fx-background-color: transparent;
+    -fx-text-fill: #aaa;
+    -fx-font-size: 13px;
+    -fx-cursor: hand;
+    -fx-padding: 4 10 4 10;
+    -fx-background-radius: 4;
+}
+.window-btn:hover {
+    -fx-background-color: #33334d;
+    -fx-text-fill: white;
+}
+.window-btn-close:hover {
+    -fx-background-color: #d32f2f;
+    -fx-text-fill: white;
+}
+
+/* ===== GÓRNY PASEK ===== */
+.top-bar {
+    -fx-background-color: #1a1a2e;
+    -fx-border-color: #2a2a4e;
+    -fx-border-width: 0 0 1 0;
+}
+
+/* ===== POLE WYSZUKIWANIA ===== */
+.search-field {
+    -fx-background-color: #0d0d1f;
+    -fx-text-fill: white;
+    -fx-prompt-text-fill: #666;
+    -fx-border-color: #333355;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-font-size: 13px;
+    -fx-padding: 6 10 6 10;
+}
+.search-field:focused {
+    -fx-border-color: #55FF55;
+}
+
+/* ===== FILTRY ===== */
+.filter-box {
+    -fx-background-color: #0d0d1f;
+    -fx-text-fill: white;
+    -fx-border-color: #333355;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+}
+.filter-box .list-cell {
+    -fx-background-color: #0d0d1f;
+    -fx-text-fill: white;
+}
+.filter-box .list-cell:hover {
+    -fx-background-color: #1e1e3e;
+}
+.filter-label {
+    -fx-text-fill: #aaa;
+    -fx-font-size: 12px;
+}
+
+/* ===== MANUAL PANE ===== */
+.manual-pane {
+    -fx-text-fill: #aaa;
+    -fx-background-color: transparent;
+}
+.manual-pane > .title {
+    -fx-text-fill: #aaa;
+    -fx-background-color: #151525;
+    -fx-font-size: 12px;
+}
+.manual-pane > .content {
+    -fx-background-color: #151525;
+    -fx-border-color: #2a2a4a;
+}
+
+/* ===== LISTA STACJI ===== */
+.station-list {
+    -fx-background-color: #111118;
+    -fx-border-color: #2a2a4a;
+    -fx-border-width: 1 0 1 0;
+}
+
+/* Usunięcie domyślnego podświetlenia całego wiersza na rzecz podświetlenia konkretnej komórki (Karty) */
+.station-list .list-cell:selected {
+    -fx-background-color: transparent;
+}
+.station-list .list-cell:selected:hover {
+    -fx-background-color: transparent;
+}
+
+/* ===== DOLNY PASEK ODTWARZACZA ===== */
+.player-bar {
+    -fx-background-color: #151525;
+    -fx-border-color: #2a2a4a;
+    -fx-border-width: 2 0 0 0;
+}
+
+/* ===== GŁÓWNA CZCIONKA ODTWARZACZA ===== */
+.station-label {
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+}
+.song-label {
+    -fx-text-fill: #ccc;
+    -fx-font-size: 15px;
+    -fx-font-style: italic;
+}
+.status-label {
+    -fx-text-fill: #888;
+    -fx-font-size: 11px;
+}
+
+/* ===== PRZYCISKI ===== */
+.btn-primary {
+    -fx-background-color: #533483;
+    -fx-text-fill: white;
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    -fx-cursor: hand;
+    -fx-font-size: 13px;
+    -fx-padding: 6 14 6 14;
+}
+.btn-primary:hover {
+    -fx-background-color: #6a44a8;
+}
+
+.btn-fav {
+    -fx-background-color: #5a4500;
+    -fx-text-fill: #FFD700;
+    -fx-background-radius: 6;
+    -fx-cursor: hand;
+    -fx-font-size: 13px;
+    -fx-padding: 6 14 6 14;
+}
+.btn-fav:hover {
+    -fx-background-color: #7a6000;
+}
+
+.btn-stop {
+    -fx-background-color: #3a0000;
+    -fx-text-fill: #FF5555;
+    -fx-background-radius: 6;
+    -fx-cursor: hand;
+    -fx-font-size: 13px;
+    -fx-padding: 6 14 6 14;
+}
+.btn-stop:hover {
+    -fx-background-color: #660000;
+}
+
+.btn-play {
+    -fx-background-color: #1a4a20;
+    -fx-text-fill: #55FF55;
+    -fx-background-radius: 6;
+    -fx-cursor: hand;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-padding: 6 14 6 14;
+}
+.btn-play:hover {
+    -fx-background-color: #257a38;
+}
+
+.btn-record {
+    -fx-background-color: #3a0000;
+    -fx-text-fill: #FF5555;
+    -fx-background-radius: 6;
+    -fx-cursor: hand;
+    -fx-font-size: 13px;
+    -fx-padding: 6 14 6 14;
+}
+.btn-record:hover { -fx-background-color: #660000; }
+
+.btn-recording {
+    -fx-background-color: #880000;
+    -fx-text-fill: white;
+    -fx-background-radius: 6;
+    -fx-cursor: hand;
+    -fx-font-size: 13px;
+    -fx-padding: 6 14 6 14;
+}
+
+.btn-secondary {
+    -fx-background-color: #1e1e38;
+    -fx-text-fill: #ccc;
+    -fx-background-radius: 6;
+    -fx-cursor: hand;
+    -fx-font-size: 13px;
+    -fx-padding: 6 14 6 14;
+}
+.btn-secondary:hover {
+    -fx-background-color: #2a2a50;
+}
+
+/* ===== SUWAK GŁOŚNOŚCI ===== */
+.volume-slider .track {
+    -fx-background-color: #1e1e38;
+}
+.volume-slider .thumb {
+    -fx-background-color: #533483;
+}
+.volume-slider .thumb:hover {
+    -fx-background-color: #55FF55;
+}
+
+/* ===== CIEMNY SCROLLBAR (Nowość) ===== */
+.scroll-bar:vertical, .scroll-bar:horizontal {
+    -fx-background-color: transparent;
+}
+.scroll-bar:vertical .track,
+.scroll-bar:horizontal .track {
+    -fx-background-color: #111118;
+    -fx-border-color: transparent;
+}
+.scroll-bar:vertical .thumb,
+.scroll-bar:horizontal .thumb {
+    -fx-background-color: #2a2a4a;
+    -fx-background-radius: 4em;
+}
+.scroll-bar:vertical .thumb:hover,
+.scroll-bar:horizontal .thumb:hover {
+    -fx-background-color: #44446a;
+}
+.scroll-bar:vertical .increment-button,
+.scroll-bar:vertical .decrement-button,
+.scroll-bar:horizontal .increment-button,
+.scroll-bar:horizontal .decrement-button {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+.scroll-bar:vertical .increment-arrow,
+.scroll-bar:vertical .decrement-arrow,
+.scroll-bar:horizontal .increment-arrow,
+.scroll-bar:horizontal .decrement-arrow {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+
+/* ===== DIALOGI ===== */
+.dialog-root {
+    -fx-background-color: #13131f;
+}
+.dialog-title {
+    -fx-text-fill: #55FF55;
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+}
+.dialog-hint {
+    -fx-text-fill: #888;
+    -fx-font-size: 12px;
+}
+.dialog-label {
+    -fx-text-fill: #ccc;
+    -fx-font-size: 12px;
+}
+.blacklist-view {
+    -fx-background-color: #0d0d1a;
+    -fx-border-color: #2a2a4a;
+}
+.blacklist-view .list-cell {
+    -fx-background-color: #0d0d1a;
+    -fx-text-fill: white;
+    -fx-padding: 6 10 6 10;
+}
+.blacklist-view .list-cell:hover {
+    -fx-background-color: #1a1a30;
+}
+
+/* ===== SETTINGS ===== */
+.settings-section {
+    -fx-text-fill: #55FF55;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+}
+.settings-toggle-on {
+    -fx-background-color: #0d2a0d;
+    -fx-text-fill: #55FF55;
+    -fx-background-radius: 0;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+    -fx-alignment: center-left;
+}
+.settings-toggle-on:hover { -fx-background-color: #1a3a1a; }
+.settings-toggle-off {
+    -fx-background-color: #2a0d0d;
+    -fx-text-fill: #FF5555;
+    -fx-background-radius: 0;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+    -fx-alignment: center-left;
+}
+.settings-toggle-off:hover { -fx-background-color: #3a1a1a; }
+.dialog-radio { -fx-text-fill: white; }
