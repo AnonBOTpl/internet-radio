@@ -6,6 +6,9 @@ Lekki, nowoczesny i bogaty w funkcje odtwarzacz radia internetowego napisany w J
 ![JavaFX](https://img.shields.io/badge/JavaFX-UI-1366b5?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
+<img width="960" height="611" alt="image" src="https://github.com/user-attachments/assets/45e97466-c88c-49ea-bbf6-18fd1073b2f7" />
+
+
 *Przeczytaj w języku [Angielskim](README.md)*
 
 ---
