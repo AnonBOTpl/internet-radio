@@ -6,6 +6,10 @@ A lightweight, modern, and feature-rich internet radio player written in Java 21
 ![JavaFX](https://img.shields.io/badge/JavaFX-UI-1366b5?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
+<img width="960" height="611" alt="{7E5BA7C0-85C0-4B7D-B3C1-66F2352BC0F2}" src="https://github.com/user-attachments/assets/a86b8e6f-8795-43e6-a37f-08dd5ca41ccd" />
+
+
+
 *Read this in [Polish](README_pl.md)*
 
 ---
