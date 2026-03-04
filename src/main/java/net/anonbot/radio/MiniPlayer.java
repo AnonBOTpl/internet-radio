@@ -108,7 +108,12 @@ public class MiniPlayer {
         Slider volSlider = new Slider(0, 1, modClient.getVolume());
         volSlider.setPrefWidth(70);
         volSlider.setStyle("-fx-padding: 0;");
-        volSlider.valueProperty().addListener((obs, o, nv) -> modClient.setVolume(nv.floatValue()));
+        Tooltip volTooltip = new Tooltip(Math.round(modClient.getVolume() * 100) + "%");
+        Tooltip.install(volSlider, volTooltip);
+        volSlider.valueProperty().addListener((obs, o, nv) -> {
+            modClient.setVolume(nv.floatValue());
+            volTooltip.setText(Math.round(nv.doubleValue() * 100) + "%");
+        });
 
         boolean pinned = modClient.isMiniPlayerAlwaysOnTop();
         pinBtn = new Button(pinned ? "📌" : "📍");

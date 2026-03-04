@@ -15,7 +15,7 @@ if %ERRORLEVEL% neq 0 (
 echo.
 echo STEP 2: Preparing files...
 if not exist "target\jpackage_input" mkdir target\jpackage_input
-copy target\radio-app-1.0.0.jar target\jpackage_input\ >nul
+copy target\radio-app-1.1.0.jar target\jpackage_input\ >nul
 copy target\libs\*.jar target\jpackage_input\ >nul
 
 echo.
@@ -27,18 +27,18 @@ jpackage ^
   --name "InternetRadio" ^
   --dest release ^
   --input target\jpackage_input ^
-  --main-jar radio-app-1.0.0.jar ^
+  --main-jar radio-app-1.1.0.jar ^
   --main-class net.anonbot.radio.Main ^
   --icon "icon.ico" ^
   --win-per-user-install ^
   --win-dir-chooser ^
   --win-menu ^
   --win-shortcut ^
-  --app-version "1.0.0"
+  --app-version "1.1.0"
 
 echo.
 echo ===================================================
 echo DONE! 
-echo Installer (InternetRadio-1.0.0.exe) is ready in the "release" folder.
+echo Installer (InternetRadio-1.1.0.exe) is ready in the "release" folder.
 echo ===================================================
 pause

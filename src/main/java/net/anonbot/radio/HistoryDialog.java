@@ -1,6 +1,7 @@
 package net.anonbot.radio;
 
 import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -8,8 +9,6 @@ import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
-
-import java.util.List;
 
 public class HistoryDialog {
 
@@ -34,17 +33,19 @@ public class HistoryDialog {
         root.setPadding(new Insets(16));
         root.getStyleClass().add("dialog-root");
 
-        Label title = new Label(modClient.t("📜 Historia piosenek", "📜 Song History"));
-        title.getStyleClass().add("dialog-title");
+        Label titleLbl = new Label(modClient.t("📜 Historia piosenek", "📜 Song History"));
+        titleLbl.getStyleClass().add("dialog-title");
 
         Label hint = new Label(modClient.t(
                 "Ostatnie 200 piosenek. Dwuklik = skopiuj tytuł.",
                 "Last 200 songs. Double-click = copy title."));
         hint.getStyleClass().add("dialog-hint");
 
-        // Lista historii
-        List<RadioModClient.HistoryEntry> entries = modClient.getHistory();
-        ListView<RadioModClient.HistoryEntry> list = new ListView<>(FXCollections.observableList(entries));
+        // ObservableList bezpośrednio z wewnętrznej historii — fix: operujemy na oryginale
+        ObservableList<RadioModClient.HistoryEntry> items =
+                FXCollections.observableArrayList(modClient.getHistory());
+
+        ListView<RadioModClient.HistoryEntry> list = new ListView<>(items);
         list.getStyleClass().add("blacklist-view");
         VBox.setVgrow(list, Priority.ALWAYS);
 
@@ -71,14 +72,14 @@ public class HistoryDialog {
                 songLbl.setMaxWidth(Double.MAX_VALUE);
                 HBox.setHgrow(songLbl, Priority.ALWAYS);
 
-                // Przycisk blokady
                 Button blockBtn = new Button("🚫");
                 blockBtn.setStyle("-fx-background-color: #550000; -fx-text-fill: white; " +
                         "-fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 1 4 1 4;");
                 blockBtn.setTooltip(new Tooltip(modClient.t("Dodaj do czarnej listy", "Add to blacklist")));
                 blockBtn.setOnAction(e -> {
                     modClient.addToBlacklist(item.song);
-                    list.setItems(FXCollections.observableList(modClient.getHistory()));
+                    // Odświeżamy widok — nie tykamy oryginalnej listy historii
+                    items.setAll(modClient.getHistory());
                 });
 
                 row.getChildren().addAll(timeLbl, stationLbl, songLbl, blockBtn);
@@ -100,15 +101,15 @@ public class HistoryDialog {
             }
         });
 
-        // Przyciski dolne
         HBox btnRow = new HBox(8);
         btnRow.setAlignment(Pos.CENTER_RIGHT);
 
         Button clearBtn = new Button(modClient.t("🗑 Wyczyść historię", "🗑 Clear history"));
         clearBtn.getStyleClass().add("btn-stop");
         clearBtn.setOnAction(e -> {
-            modClient.getHistory().clear();
-            list.setItems(FXCollections.observableList(modClient.getHistory()));
+            // Fix: czyścimy oryginalną listę przez dedykowaną metodę, nie kopię
+            modClient.clearHistory();
+            items.clear();
         });
 
         Button closeBtn = new Button(modClient.t("Zamknij", "Close"));
@@ -116,8 +117,7 @@ public class HistoryDialog {
         closeBtn.setOnAction(e -> dialog.close());
 
         btnRow.getChildren().addAll(clearBtn, closeBtn);
-
-        root.getChildren().addAll(title, hint, new Separator(), list, btnRow);
+        root.getChildren().addAll(titleLbl, hint, new Separator(), list, btnRow);
 
         Scene scene = new Scene(root, 580, 450);
         try { scene.getStylesheets().add(getClass().getResource("/styles.css").toExternalForm()); }
