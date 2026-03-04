@@ -10,6 +10,9 @@ Lekki, nowoczesny i bogaty w funkcje odtwarzacz radia internetowego napisany w J
 
 ---
 
+<img width="957" height="575" alt="{D2780E4E-16CC-49AC-A802-88AB38BF5537}" src="https://github.com/user-attachments/assets/8410f8a1-72ff-47c2-b79e-e1d2544ff954" />
+
+
 ## ✨ Główne funkcje
 
 * **🌍 Globalna wyszukiwarka** — Integracja z *Radio-Browser API*. Szukaj stacji po nazwie, kraju lub gatunku muzycznym.
