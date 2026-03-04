@@ -10,6 +10,9 @@ A lightweight, modern, and feature-rich internet radio player written in Java 21
 
 ---
 
+<img width="955" height="572" alt="{4DD8A20F-C0E1-44CD-8640-07A5B2D1D923}" src="https://github.com/user-attachments/assets/1a2f29c1-5608-4f81-93d4-00b65946b9e3" />
+
+
 ## ✨ Features
 
 * **🌍 Global Station Search** — Powered by the open *Radio-Browser API*. Search by name, country, or genre across thousands of stations.
