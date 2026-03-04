@@ -78,6 +78,7 @@ public class RadioApp extends Application implements NativeKeyListener {
 
     private void shutdown() {
         try { GlobalScreen.unregisterNativeHook(); } catch (NativeHookException ignored) {}
+        modClient.shutdownExecutors();
         Platform.exit();
         System.exit(0);
     }

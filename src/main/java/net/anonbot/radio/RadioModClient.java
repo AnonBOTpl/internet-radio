@@ -19,8 +19,6 @@ import java.util.function.Consumer;
 
 public class RadioModClient {
 
-    private static RadioModClient INSTANCE;
-
     private final Object playerLock = new Object();
     private RadioPlayer currentPlayer = null;
     private Thread radioThread = null;
@@ -35,6 +33,7 @@ public class RadioModClient {
     private boolean miniPlayerAlwaysOnTop = true;
 
     private final List<String> blacklist = new ArrayList<>();
+    private final Object blacklistLock = new Object();
     private final List<FavoriteStation> favorites = new ArrayList<>();
     private final List<HistoryEntry> history = new ArrayList<>();
 
@@ -70,8 +69,8 @@ public class RadioModClient {
         }
     }
 
-    public RadioModClient() { INSTANCE = this; }
-    public static RadioModClient getInstance() { return INSTANCE; }
+    public RadioModClient() { }
+
 
     public void initLanguageSystem() {
         Path langDir = Path.of(System.getProperty("user.home"), ".radioapp", "langs");
@@ -155,7 +154,12 @@ public class RadioModClient {
     private void loadLanguageStrings() {
         langMap.clear();
         String activeLang = language.equals("auto") ? Locale.getDefault().getLanguage() : language;
-        Path target = Path.of(System.getProperty("user.home"), ".radioapp", "langs", activeLang + ".json");
+        // Ochrona przed path traversal: akceptujemy tylko małe litery a-z, max 10 znaków
+        if (activeLang == null || !activeLang.matches("[a-z]{2,10}")) activeLang = "en";
+        Path langDir = Path.of(System.getProperty("user.home"), ".radioapp", "langs");
+        Path target = langDir.resolve(activeLang + ".json");
+        // Upewniamy się, że ścieżka docelowa jest wewnątrz katalogu langs (dodatkowa ochrona)
+        if (!target.normalize().startsWith(langDir.normalize())) return;
         
         if (Files.exists(target)) {
             try {
@@ -232,7 +236,7 @@ public class RadioModClient {
     }
 
     public void playStation(String name, String url, String favicon) {
-        if (url == null || (!url.startsWith("http://") && !url.startsWith("https://"))) return;
+        if (!isUrlSafe(url)) return;
 
         final long myRequestId = ++playRequestId;
         currentStationUrl = url;
@@ -329,54 +333,72 @@ public class RadioModClient {
         CompletableFuture.runAsync(() -> {
             String fetched = RadioPlayer.fetchCurrentSong(url);
             if (fetched == null) return;
-            
+
             String newSong = fetched.trim().isEmpty() ? t("Audycja na żywo", "Live broadcast") : formatSongTitle(fetched.trim());
             if (!newSong.equals(lastSongName)) {
                 lastSongName = newSong;
-                fetchAlbumArt(newSong); 
+
                 String timeStr = LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm dd.MM"));
                 synchronized (history) {
                     history.add(0, new HistoryEntry(newSong, currentStationName, timeStr));
                     if (history.size() > 200) history.remove(history.size() - 1);
                 }
-                if (!isBlacklisted(newSong) && !onSongChangedListeners.isEmpty()) {
-                    Platform.runLater(() -> onSongChangedListeners.forEach(l -> l.accept(newSong)));
+
+                if (isBlacklisted(newSong)) {
+                    // Utwór na czarnej liście: czyścimy okładkę i NIE powiadamiamy UI
+                    currentAlbumArt = null;
+                    Platform.runLater(() -> onAlbumArtListeners.forEach(l -> l.accept(null)));
+                    return;
                 }
+
+                // Pobieramy okładkę, a dopiero po jej załadowaniu powiadamiamy o nowym utworze
+                fetchAlbumArtThenNotify(newSong);
             }
         });
     }
 
-    private void fetchAlbumArt(String songName) {
+    private void fetchAlbumArtThenNotify(String songName) {
         if (songName == null || songName.contains("Audycja") || songName.contains("Live")) {
             currentAlbumArt = null;
-            Platform.runLater(() -> onAlbumArtListeners.forEach(l -> l.accept(null)));
+            Platform.runLater(() -> {
+                onAlbumArtListeners.forEach(l -> l.accept(null));
+                onSongChangedListeners.forEach(l -> l.accept(songName));
+            });
             return;
         }
         CompletableFuture.runAsync(() -> {
             try {
                 String query = songName.replaceAll("\\[.*?\\]", "").replaceAll("\\(.*?\\)", "").trim();
                 String urlStr = "https://itunes.apple.com/search?term=" + URLEncoder.encode(query, StandardCharsets.UTF_8) + "&entity=song&limit=1";
-                
+
                 HttpClient client = HttpClient.newHttpClient();
                 HttpRequest req = HttpRequest.newBuilder().uri(URI.create(urlStr)).build();
                 HttpResponse<String> resp = client.send(req, HttpResponse.BodyHandlers.ofString());
 
                 JsonObject j = JsonParser.parseString(resp.body()).getAsJsonObject();
+                String finalArtwork = null;
                 if (j.has("results") && j.getAsJsonArray("results").size() > 0) {
                     JsonObject first = j.getAsJsonArray("results").get(0).getAsJsonObject();
                     String rawArtwork = first.has("artworkUrl100") ? first.get("artworkUrl100").getAsString() : null;
-                    
-                    final String finalArtwork = rawArtwork != null ? rawArtwork.replace("100x100bb", "200x200bb") : null;
-                    
-                    currentAlbumArt = finalArtwork;
-                    Platform.runLater(() -> onAlbumArtListeners.forEach(l -> l.accept(finalArtwork)));
-                } else {
-                    currentAlbumArt = null;
-                    Platform.runLater(() -> onAlbumArtListeners.forEach(l -> l.accept(null))); 
+                    if (rawArtwork != null) finalArtwork = rawArtwork.replace("100x100bb", "200x200bb");
                 }
+
+                // Weryfikacja: sprawdzamy czy utwór nie zmienił się w trakcie pobierania okładki
+                if (!songName.equals(lastSongName)) return;
+
+                currentAlbumArt = finalArtwork;
+                final String artworkToSend = finalArtwork;
+                Platform.runLater(() -> {
+                    onAlbumArtListeners.forEach(l -> l.accept(artworkToSend));
+                    onSongChangedListeners.forEach(l -> l.accept(songName));
+                });
             } catch (Exception e) {
+                if (!songName.equals(lastSongName)) return;
                 currentAlbumArt = null;
-                Platform.runLater(() -> onAlbumArtListeners.forEach(l -> l.accept(null)));
+                Platform.runLater(() -> {
+                    onAlbumArtListeners.forEach(l -> l.accept(null));
+                    onSongChangedListeners.forEach(l -> l.accept(songName));
+                });
             }
         });
     }
@@ -396,9 +418,58 @@ public class RadioModClient {
         return title;
     }
 
+    /**
+     * Sprawdza czy URL jest bezpieczny do użycia jako strumień radiowy.
+     * Blokuje: null, nie-HTTP/S, adresy lokalne, prywatne zakresy IP.
+     */
+    public static boolean isUrlSafe(String url) {
+        if (url == null || url.isBlank()) return false;
+        String lower = url.toLowerCase(java.util.Locale.ROOT);
+        if (!lower.startsWith("http://") && !lower.startsWith("https://")) return false;
+        try {
+            java.net.URI uri = java.net.URI.create(url);
+            String host = uri.getHost();
+            if (host == null || host.isBlank()) return false;
+            String h = host.toLowerCase(java.util.Locale.ROOT);
+            // Blokuj adresy lokalne i prywatne
+            if (h.equals("localhost")) return false;
+            if (h.startsWith("127.")) return false;
+            if (h.equals("0.0.0.0")) return false;
+            if (h.startsWith("10.")) return false;
+            if (h.startsWith("192.168.")) return false;
+            if (h.startsWith("169.254.")) return false; // link-local
+            if (h.equals("[::1]") || h.equals("::1")) return false; // IPv6 loopback
+            // Blokuj inne protokoły które mogą się pojawić po ?
+            if (lower.contains("javascript:") || lower.contains("file:") || lower.contains("data:")) return false;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Sanitizuje kolor akcentu — akceptuje tylko prawidłowy format #RRGGBB.
+     * Chroni przed wstrzyknięciem złośliwego CSS przez zmodyfikowany config.json.
+     */
+    public static String sanitizeColor(String color, String fallback) {
+        if (color != null && color.matches("#[0-9a-fA-F]{6}")) return color;
+        return fallback;
+    }
+
+    public void shutdownExecutors() {
+        stopSongChecker();
+        if (sleepTimerFuture != null) { sleepTimerFuture.cancel(false); sleepTimerFuture = null; }
+        if (sleepTimerExecutor != null && !sleepTimerExecutor.isShutdown()) {
+            sleepTimerExecutor.shutdownNow();
+            sleepTimerExecutor = null;
+        }
+    }
+
     private boolean isBlacklisted(String song) {
         String lower = song.toLowerCase();
-        return blacklist.stream().anyMatch(w -> lower.contains(w.toLowerCase()));
+        synchronized (blacklistLock) {
+            return blacklist.stream().anyMatch(w -> lower.contains(w.toLowerCase()));
+        }
     }
 
     // ===== GETTERY / SETTERY =====
@@ -428,13 +499,15 @@ public class RadioModClient {
     public String  getAccentColor()       { return accentColor; }
     public String  getAccentColorLight()  { return accentColorLight; }
     public void    setAccentColor(String c, String cl) {
-        accentColor = c; accentColorLight = cl; saveConfig();
+        accentColor = sanitizeColor(c, "#533483");
+        accentColorLight = sanitizeColor(cl, "#6a44a8");
+        saveConfig();
         if (onThemeChanged != null) Platform.runLater(onThemeChanged);
     }
     public boolean isMiniPlayerAlwaysOnTop()        { return miniPlayerAlwaysOnTop; }
     public void    setMiniPlayerAlwaysOnTop(boolean v){ miniPlayerAlwaysOnTop = v; saveConfig(); }
 
-    public List<String>       getBlacklist() { return blacklist; }
+    public List<String>       getBlacklist() { synchronized (blacklistLock) { return new ArrayList<>(blacklist); } }
     public List<FavoriteStation> getFavorites() { return favorites; }
     public List<HistoryEntry>  getHistory()  { synchronized (history) { return new ArrayList<>(history); } }
 
@@ -445,7 +518,18 @@ public class RadioModClient {
         saveConfig();
     }
     public void addToBlacklist(String song) {
-        if (!blacklist.contains(song)) { blacklist.add(song); saveConfig(); }
+        synchronized (blacklistLock) {
+            if (!blacklist.contains(song)) { blacklist.add(song); }
+        }
+        saveConfig();
+    }
+    public void removeFromBlacklist(String phrase) {
+        synchronized (blacklistLock) { blacklist.remove(phrase); }
+        saveConfig();
+    }
+    public void clearHistory() {
+        synchronized (history) { history.clear(); }
+        saveConfig();
     }
 
     public boolean startRecording(String path) {
@@ -481,8 +565,25 @@ public class RadioModClient {
             j.add("favorites", fa);
 
             JsonArray ba = new JsonArray();
-            for (String w : blacklist) ba.add(w);
+            synchronized (blacklistLock) {
+                for (String w : blacklist) ba.add(w);
+            }
             j.add("blacklist", ba);
+
+            JsonArray ha = new JsonArray();
+            synchronized (history) {
+                // Zapisujemy max 50 ostatnich wpisów historii
+                int limit = Math.min(history.size(), 50);
+                for (int i = 0; i < limit; i++) {
+                    HistoryEntry he = history.get(i);
+                    JsonObject o = new JsonObject();
+                    o.addProperty("song", he.song);
+                    o.addProperty("station", he.station);
+                    o.addProperty("time", he.time);
+                    ha.add(o);
+                }
+            }
+            j.add("history", ha);
 
             Files.writeString(p, new GsonBuilder().setPrettyPrinting().create().toJson(j));
         } catch (Exception e) { System.err.println("[RadioApp] Błąd zapisu: " + e.getMessage()); }
@@ -498,8 +599,8 @@ public class RadioModClient {
                 if (j.has("showToast"))            showToast            = j.get("showToast").getAsBoolean();
                 if (j.has("toastDuration"))        toastDuration        = j.get("toastDuration").getAsInt();
                 if (j.has("language"))             language             = j.get("language").getAsString();
-                if (j.has("accentColor"))          accentColor          = j.get("accentColor").getAsString();
-                if (j.has("accentColorLight"))     accentColorLight     = j.get("accentColorLight").getAsString();
+                if (j.has("accentColor"))          accentColor          = sanitizeColor(j.get("accentColor").getAsString(), "#533483");
+                if (j.has("accentColorLight"))     accentColorLight     = sanitizeColor(j.get("accentColorLight").getAsString(), "#6a44a8");
                 if (j.has("miniPlayerAlwaysOnTop"))miniPlayerAlwaysOnTop= j.get("miniPlayerAlwaysOnTop").getAsBoolean();
 
                 favorites.clear();
@@ -516,6 +617,18 @@ public class RadioModClient {
                 if (j.has("blacklist"))
                     for (JsonElement e : j.getAsJsonArray("blacklist")) blacklist.add(e.getAsString());
                 else { blacklist.add("reklama"); blacklist.add("ad"); }
+
+                history.clear();
+                if (j.has("history")) {
+                    for (JsonElement e : j.getAsJsonArray("history")) {
+                        JsonObject o = e.getAsJsonObject();
+                        history.add(new HistoryEntry(
+                            o.has("song")    ? o.get("song").getAsString()    : "",
+                            o.has("station") ? o.get("station").getAsString() : "",
+                            o.has("time")    ? o.get("time").getAsString()    : ""
+                        ));
+                    }
+                }
             } else { blacklist.add("reklama"); blacklist.add("ad"); }
         } catch (Exception e) { System.err.println("[RadioApp] Błąd odczytu: " + e.getMessage()); }
         loadLanguageStrings();

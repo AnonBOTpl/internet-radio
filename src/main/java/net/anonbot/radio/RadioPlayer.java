@@ -24,11 +24,16 @@ public class RadioPlayer implements Runnable {
     private volatile boolean isRecording   = false;
 
     private float currentVolume = 0.5f;
+    private static final long MAX_RECORDING_BYTES = 2L * 1024 * 1024 * 1024; // 2 GB
+    private long recordingBytesWritten = 0;
     private ByteArrayOutputStream recordingBuffer;
     private String recordingPath;
     private AudioFormat decodedFormat;
 
-    private volatile MediaPlayer fxPlayer;
+    // Osobny lock dla fxPlayer — jest tworzony/niszczony na wątku JavaFX,
+    // ale odczytywany (isPlaying, setVolume) z innych wątków.
+    private final Object fxLock = new Object();
+    private MediaPlayer fxPlayer;
 
     public RadioPlayer(String streamUrl, RadioModClient clientRef) {
         this.streamUrl  = streamUrl;
@@ -99,8 +104,16 @@ public class RadioPlayer implements Runnable {
             while (!stopRequested && (n = decoded.read(buf, 0, buf.length)) != -1) {
                 dataLine.write(buf, 0, n);
                 
-                if (isRecording && recordingBuffer != null)
-                    recordingBuffer.write(buf, 0, n);
+                if (isRecording && recordingBuffer != null) {
+                    if (recordingBytesWritten + n <= MAX_RECORDING_BYTES) {
+                        recordingBuffer.write(buf, 0, n);
+                        recordingBytesWritten += n;
+                    } else {
+                        // Przekroczono limit 2 GB — automatycznie zatrzymujemy nagrywanie
+                        System.err.println("[RadioApp] Nagrywanie zatrzymane — osiągnięto limit 2 GB.");
+                        stopRecording();
+                    }
+                }
             }
 
             decoded.close();
@@ -110,8 +123,8 @@ public class RadioPlayer implements Runnable {
             if (!stopRequested)
                 System.err.println("[RadioApp] Błąd strumienia: " + e.getClass().getSimpleName() + ": " + e.getMessage());
         } finally {
-            if (fxPlayer == null) {
-                isPlaying = false;
+            synchronized (fxLock) {
+                if (fxPlayer == null) isPlaying = false;
             }
             closeDataLine();
             disconnectConn();
@@ -122,24 +135,23 @@ public class RadioPlayer implements Runnable {
         Platform.runLater(() -> {
             try {
                 Media media = new Media(streamUrl);
-                fxPlayer = new MediaPlayer(media);
-                fxPlayer.setVolume(currentVolume);
-                
-                fxPlayer.setOnPlaying(() -> {
+                MediaPlayer player = new MediaPlayer(media);
+                player.setVolume(currentVolume);
+
+                player.setOnPlaying(() -> {
                     isPlaying = true;
                     if (clientRef != null) clientRef.notifyConnected();
                 });
-                
-                fxPlayer.setOnError(() -> {
-                    System.err.println("[RadioApp] JavaFX Media błąd: " + fxPlayer.getError().getMessage());
+                player.setOnError(() -> {
+                    System.err.println("[RadioApp] JavaFX Media błąd: " + player.getError().getMessage());
                     isPlaying = false;
                 });
-                
-                fxPlayer.setOnStopped(() -> isPlaying = false);
-                fxPlayer.setOnEndOfMedia(() -> isPlaying = false);
-                fxPlayer.setOnHalted(() -> isPlaying = false);
-                
-                fxPlayer.play();
+                player.setOnStopped(() -> isPlaying = false);
+                player.setOnEndOfMedia(() -> isPlaying = false);
+                player.setOnHalted(() -> isPlaying = false);
+
+                synchronized (fxLock) { fxPlayer = player; }
+                player.play();
             } catch (Exception ex) {
                 System.err.println("[RadioApp] Błąd inicjalizacji JavaFX Media: " + ex.getMessage());
                 isPlaying = false;
@@ -149,7 +161,8 @@ public class RadioPlayer implements Runnable {
 
     private HttpURLConnection openConnection(String url, int redirects) throws IOException {
         if (redirects > 5) return null;
-        // Zastosowanie bezpiecznego URI zamiast przestarzałego new URL(url)
+        // Walidacja URL przed połączeniem (ochrona przed SSRF i przekierowaniami na file://)
+        if (!RadioModClient.isUrlSafe(url)) return null;
         HttpURLConnection conn = (HttpURLConnection) URI.create(url).toURL().openConnection();
         conn.setConnectTimeout(7000);
         conn.setReadTimeout(15000);
@@ -161,7 +174,9 @@ public class RadioPlayer implements Runnable {
         if (code == 301 || code == 302 || code == 303 || code == 307 || code == 308) {
             String loc = conn.getHeaderField("Location");
             conn.disconnect();
-            if (loc != null && !loc.isEmpty()) return openConnection(loc, redirects + 1);
+            // Walidujemy też URL przekierowania przed podążeniem za nim
+            if (loc != null && !loc.isEmpty() && RadioModClient.isUrlSafe(loc))
+                return openConnection(loc, redirects + 1);
         }
         return conn;
     }
@@ -171,12 +186,16 @@ public class RadioPlayer implements Runnable {
         isPlaying = false;
         disconnectConn();
         closeDataLine();
-        
-        if (fxPlayer != null) {
+
+        MediaPlayer playerToStop;
+        synchronized (fxLock) {
+            playerToStop = fxPlayer;
+            fxPlayer = null;
+        }
+        if (playerToStop != null) {
             Platform.runLater(() -> {
-                fxPlayer.stop();
-                fxPlayer.dispose();
-                fxPlayer = null;
+                playerToStop.stop();
+                playerToStop.dispose();
             });
         }
     }
@@ -197,8 +216,11 @@ public class RadioPlayer implements Runnable {
 
     public void setVolume(float v) {
         currentVolume = Math.max(0f, Math.min(v, 1f));
-        if (fxPlayer != null) {
-            Platform.runLater(() -> fxPlayer.setVolume(currentVolume));
+        synchronized (fxLock) {
+            if (fxPlayer != null) {
+                final float vol = currentVolume;
+                Platform.runLater(() -> fxPlayer.setVolume(vol));
+            }
         }
         updateVolumeControl();
     }
@@ -214,13 +236,14 @@ public class RadioPlayer implements Runnable {
     }
 
     public boolean startRecording(String path) {
-        if (fxPlayer != null) return false;
+        synchronized (fxLock) { if (fxPlayer != null) return false; }
         if (isRecording || decodedFormat == null) return false;
         try {
             Path dir = Path.of(path).getParent();
             if (dir != null) Files.createDirectories(dir);
             recordingPath   = path;
             recordingBuffer = new ByteArrayOutputStream();
+            recordingBytesWritten = 0;
             isRecording     = true;
             return true;
         } catch (IOException e) { return false; }
@@ -242,6 +265,7 @@ public class RadioPlayer implements Runnable {
     }
 
     public static String fetchCurrentSong(String streamUrl) {
+        if (!RadioModClient.isUrlSafe(streamUrl)) return null;
         HttpURLConnection conn = null;
         try {
             // Zastosowanie bezpiecznego URI

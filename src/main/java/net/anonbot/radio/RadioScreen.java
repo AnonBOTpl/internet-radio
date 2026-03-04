@@ -369,7 +369,10 @@ public class RadioScreen {
             songLabel.setText("♪ " + song);
             statusLabel.setText(modClient.t("▶ Gra: ", "▶ Playing: ") + modClient.getCurrentStationName());
             if (modClient.isShowToast()) {
-                String img = modClient.getCurrentAlbumArt() != null ? modClient.getCurrentAlbumArt() : modClient.getCurrentStationFavicon();
+                // getCurrentAlbumArt() jest już aktualne - onSongChanged odpala się PO załadowaniu okładki
+                String img = modClient.getCurrentAlbumArt() != null
+                        ? modClient.getCurrentAlbumArt()
+                        : modClient.getCurrentStationFavicon();
                 toastManager.showToast(modClient.getCurrentStationName(), song, img,
                         modClient.getToastDuration(), () -> {
                             modClient.addToBlacklist(song);
